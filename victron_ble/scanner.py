@@ -36,7 +36,7 @@ class BaseScanner:
             self._seen_data = set()
         self._seen_data.add(data)
 
-        self.callback(device, data)
+        self.callback(device, advertisement, data)
 
     def callback(self, device: BLEDevice, data: bytes):
         raise NotImplementedError()
@@ -94,7 +94,7 @@ class Scanner(BaseScanner):
         except KeyError:
             raise AdvertisementKeyMissingError(f"No key available for {address}")
 
-    def callback(self, ble_device: BLEDevice, raw_data: bytes):
+    def callback(self, ble_device: BLEDevice, advertisement_data: AdvertisementData, raw_data: bytes):
         logger.debug(
             f"Received data from {ble_device.address.lower()}: {raw_data.hex()}"
         )
@@ -110,7 +110,7 @@ class Scanner(BaseScanner):
         blob = {
             "name": ble_device.name,
             "address": ble_device.address,
-            "rssi": ble_device.rssi,
+            "rssi": advertisement_data.rssi,
             "payload": parsed,
         }
         print(json.dumps(blob, cls=DeviceDataEncoder, indent=self._indent), flush=True)
@@ -121,7 +121,7 @@ class DiscoveryScanner(BaseScanner):
         super().__init__()
         self._seen_devices: Set[str] = set()
 
-    def callback(self, device: BLEDevice, advertisement: bytes):
+    def callback(self, device: BLEDevice, advertisement: AdvertisementData, data: bytes):
         if device.address not in self._seen_devices:
             logger.info(f"{device}")
             self._seen_devices.add(device.address)
@@ -136,6 +136,5 @@ class DebugScanner(BaseScanner):
         logger.info(f"Dumping advertisements from {self.address}")
         await super().start()
 
-    def callback(self, device: BLEDevice, data: bytes):
-        if device.address.lower() == self.address.lower():
+    def callback(self, device: BLEDevice, advertisement: AdvertisementData, data: bytes):
             logger.info(f"{time.time():<24}: {data.hex()}")
